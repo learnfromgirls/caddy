@@ -1,3 +1,17 @@
+// Copyright 2015 Light Code Labs, LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package caddytls
 
 import (
@@ -114,8 +128,10 @@ func (cfg *Config) CacheManagedCertificate(domain string) (Certificate, error) {
 
 // cacheUnmanagedCertificatePEMFile loads a certificate for host using certFile
 // and keyFile, which must be in PEM format. It stores the certificate in
-// memory. The Managed and OnDemand flags of the certificate will be set to
-// false.
+// memory after evicting any other entries in the cache keyed by the names
+// on this certificate. In other words, it replaces existing certificates keyed
+// by the names on this certificate. The Managed and OnDemand flags of the
+// certificate will be set to false.
 //
 // This function is safe for concurrent use.
 func cacheUnmanagedCertificatePEMFile(certFile, keyFile string) error {
@@ -123,6 +139,16 @@ func cacheUnmanagedCertificatePEMFile(certFile, keyFile string) error {
 	if err != nil {
 		return err
 	}
+
+	// since this is manually managed, this call might be part of a reload after
+	// the owner renewed a certificate; so clear cache of any previous cert first,
+	// otherwise the renewed certificate may never be loaded
+	certCacheMu.Lock()
+	for _, name := range cert.Names {
+		delete(certCache, name)
+	}
+	certCacheMu.Unlock()
+
 	cacheCertificate(cert)
 	return nil
 }
@@ -227,8 +253,10 @@ func fillCertFromLeaf(cert *Certificate, tlsCert tls.Certificate) error {
 // full, random entries are deleted until there is room to map all the
 // names on the certificate.
 //
-// This certificate will be keyed to the names in cert.Names. Any name
-// that is already a key in the cache will be replaced with this cert.
+// This certificate will be keyed to the names in cert.Names. Any names
+// already used as a cache key will NOT be replaced by this cert; in
+// other words, no overlap is allowed, and this certificate will not
+// service those pre-existing names.
 //
 // This function is safe for concurrent use.
 func cacheCertificate(cert Certificate) {

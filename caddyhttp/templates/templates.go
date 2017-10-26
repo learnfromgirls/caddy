@@ -1,3 +1,17 @@
+// Copyright 2015 Light Code Labs, LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package templates implements template execution for files to be
 // dynamically rendered for the client.
 package templates
@@ -40,7 +54,7 @@ func (t Templates) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, error
 				if reqExt == "" {
 					// request has no extension, so check response Content-Type
 					ct := mime.TypeByExtension(ext)
-					if strings.Contains(header.Get("Content-Type"), ct) {
+					if ct != "" && strings.Contains(header.Get("Content-Type"), ct) {
 						return true
 					}
 				} else if reqExt == ext {
@@ -94,15 +108,16 @@ func (t Templates) ServeHTTP(w http.ResponseWriter, r *http.Request) (int, error
 		rb.CopyHeader()
 
 		// set the actual content length now that the template was executed
-		w.Header().Set("Content-Length", strconv.FormatInt(int64(buf.Len()), 10))
+		w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 
-		// get the modification time in preparation to ServeContent
+		// get the modification time in preparation for http.ServeContent
 		modTime, _ := time.Parse(http.TimeFormat, w.Header().Get("Last-Modified"))
 
-		// at last, write the rendered template to the response
-		http.ServeContent(w, r, templateName, modTime, bytes.NewReader(buf.Bytes()))
+		// at last, write the rendered template to the response; make sure to use
+		// use the proper status code, since ServeContent hard-codes 2xx codes...
+		http.ServeContent(rb.StatusCodeWriter(w), r, templateName, modTime, bytes.NewReader(buf.Bytes()))
 
-		return http.StatusOK, nil
+		return 0, nil
 	}
 
 	return t.Next.ServeHTTP(w, r)

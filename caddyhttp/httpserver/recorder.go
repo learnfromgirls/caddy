@@ -1,3 +1,17 @@
+// Copyright 2015 Light Code Labs, LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package httpserver
 
 import (
@@ -193,6 +207,28 @@ func (rb *ResponseBuffer) ReadFrom(src io.Reader) (int64, error) {
 		return n, err
 	}
 	return rb.Buffer.ReadFrom(src)
+}
+
+// StatusCodeWriter returns an http.ResponseWriter that always
+// writes the status code stored in rb from when a response
+// was buffered to it.
+func (rb *ResponseBuffer) StatusCodeWriter(w http.ResponseWriter) http.ResponseWriter {
+	return forcedStatusCodeWriter{w, rb}
+}
+
+// forcedStatusCodeWriter is used to force a status code when
+// writing the header. It uses the status code saved on rb.
+// This is useful if passing a http.ResponseWriter into
+// http.ServeContent because ServeContent hard-codes 2xx status
+// codes. If we buffered the response, we force that status code
+// instead.
+type forcedStatusCodeWriter struct {
+	http.ResponseWriter
+	rb *ResponseBuffer
+}
+
+func (fscw forcedStatusCodeWriter) WriteHeader(int) {
+	fscw.ResponseWriter.WriteHeader(fscw.rb.status)
 }
 
 // respBufPool is used for io.CopyBuffer when ResponseBuffer
