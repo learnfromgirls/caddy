@@ -43,7 +43,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mholt/caddy/caddyfile"
+	"github.com/learnfromgirls/caddy/caddyfile"
 )
 
 // Configurable application parameters

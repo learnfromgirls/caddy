@@ -47,4 +47,6 @@ import (
 	_ "github.com/mholt/caddy/caddyhttp/websocket"
 	_ "github.com/mholt/caddy/onevent"
 	_ "github.com/mholt/caddy/startupshutdown"
+	_ "github.com/BTBurke/caddy-jwt"
+	_ "github.com/learnfromgirls/loginsrv/caddy"
 )
